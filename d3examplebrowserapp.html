@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+
+<title>Hi! I'm a tab title! Name me something useful!</title>
+<h2>Early 2015 Intervention Shows Clear Effects toward Improvement in Happy Bunny Ratios (in other words, an Informative Title goes here)</h2>
+<p><font size="2">The code's currently set up to fit all of the graph and this much text inside the HPCompaqLA1951g monitors (which seem to be all around GH), so a sentence here can be used to help the viewer understand the graph.</font></p>
+
+<meta charset="utf-8">
+
+<style>
+body {
+  font: 10px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.x.axis path {
+  display: none;
+}
+
+.line {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 1.5px;
+  -webkit-transition: opacity 0.3s;
+  -moz-transition: opacity 0.3s;
+  -o-transition: opacity 0.3s;
+  transition: opacity 0.3s;
+}
+
+path.invisible {
+  fill: none;
+  stroke: rgba(0,0,0,0);
+  stroke-width: 8px;
+}
+
+text.label {
+  font-size: 10px;
+  font-weight: bold;
+}
+
+</style>
+
+<script src="http://mbostock.github.com/d3/d3.v2.js"></script>
+<script src="https://raw.github.com/d3/d3-plugins/master/force_labels/force_labels.js"></script>
+<script src="http://documentcloud.github.com/underscore/underscore.js"></script>
+
+<body></body>
+<script type="text/javascript">
+
+/// This section sets up all the variables ///
+var margin = {top: 20, right: 350, bottom: 70, left: 50},
+    width = 1200 - margin.left - margin.right,
+    height = 775 - margin.top - margin.bottom;
+
+var format = d3.time.format("%m/%Y");
+
+var start = format.parse("12/2013");
+var end = format.parse("01/2017");
+var range = d3.time.months(start,end);
+
+var x = d3.time.scale()
+    .range([0,width])
+    .domain([start,end]);
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+var color = function(i) {
+  return d3.hcl(48*i,95,45).toString();
+};
+
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left");
+
+var line = d3.svg.line()
+    .interpolate("basis")
+    .defined(function(d) { return d != null; })
+    .x(function(d,i) { return x(range[i]); })
+    .y(function(d) { return y(d); });
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+/// End variable definition section ///
+	
+/// Here's where you load your csv file and tell d3 what the series are named ///
+d3.csv("d3examplelinechartdata.csv", function(raw) {
+  var data = [];
+  var goods = _(raw).pluck("Name");
+
+  _(raw).each(function(series) {
+    var value = {};
+    data.push({
+      id: series["Series ID"],
+      name: series["Name"],
+      values: _(range).map(function(month) {
+                return parseFloat(series[format(month)]) || null;
+              })
+    });
+  });
+
+  var values = _(data).chain().pluck('values').flatten().value();
+
+  y.domain([
+    0,			/// If you want to start the y-axis at the minimum value in the data, change this to d3.min(values) ///
+    d3.max(values)
+  ]);
+
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis);
+
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis)
+    .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 6)
+      .attr("dy", ".71em")
+      .style("text-anchor", "end")
+      .style("font-weight", "bold")
+      .text("Ratio");                      /// Here's where you'd put the text to label your y axis ///
+
+  var series = svg.selectAll(".series")
+      .data(data)
+    .enter().append("g")
+      .attr("class", "series");
+
+  series.append("path")
+      .attr("class", "line")
+      .attr("d", function(d) { return line(d.values); })
+      .style("stroke", function(d,i) { return color(i); });
+
+  series.append("path")
+      .attr("class", "invisible hover")
+      .attr("d", function(d) { return line(d.values); });
+
+  ////// BEGIN FORCE_LABELS//////
+  labelForce = d3.force_labels()
+      .linkDistance(0.0)
+      .gravity(0)
+      .charge(-2)
+      .on("tick",function() { 
+        d3.selectAll(".label").attr("transform",function(d) {
+           d.labelPos.x = x(end)+10;  // Fix the x value
+           return "translate("+d.labelPos.x+" "+d.labelPos.y+")"})
+      })
+  
+  labels = series.append("g")
+      .attr("class","labels")
+      .datum(function(d) { return {name: d.name, value: d.values[d.values.length - 1]}; })
+
+  // We need a small SVG object at the line-end to act as the anchor in labelforce.update
+  labels.append("circle")
+      .attr("class","anchor line")
+      .attr("cx",function(d) { return x(end)})
+      .attr("cy",function(d) { return y(d.value)})
+      .attr("r",2)
+      .style("fill", function(d,i) { return color(i); })
+      .style("stroke", function(d,i) { return color(i); })
+      .call(labelForce.update)  // Define this set to be the anchorNodes
+
+  // Add labels, that will be positioned by the on("tick") in labelForce
+  labels.append("text")
+    .attr("class","label")
+    .attr("x", 3)
+    .attr("dy", ".35em")
+    .style("fill", function(d,i) { return color(i); })
+    .text(function(d) { return d.name; });
+  ////// END FORCE LABELS //////
+  
+  /// Here's the mouseover code ///  
+  series.selectAll(".hover")
+      .on("mouseover", function(d,i) {
+        d3.selectAll(".line")
+          .style("opacity", 0.12)
+          .filter(function(p) { return p.name == d.name; })
+          .style("opacity", 1)
+          .style("stroke-width", 2.5);
+        d3.selectAll(".series text")
+          .style("opacity", 0)
+          .filter(function(p) { return p.name == d.name; })
+          .style("opacity", 1);
+      })
+      .on("mouseout", function(d,i) {
+        d3.selectAll(".line")
+          .style("opacity", 1)
+          .style("stroke-width", null);
+        d3.selectAll(".series text")
+          .style("opacity", 1);
+      });
+});
+</script>
+
+<p>
+Note: all of your important "data use caveats" can go here, or links to important other info, like by clicking <a href="https://connection.ghc.org/Pages/default.aspx" target="new">here</a>, or graph interpretations, or whatever you think needs to be here... 
+Footnotes aren't always read, but they're more readily read when viewed onscreen as opposed to on paper or a ppt slide...
+Maybe even put a link to let the user download the table, e.g., by saying <a href="d3examplelinechartdata.csv" target="_blank">Click here to access the raw data.</a> 
+</p>
